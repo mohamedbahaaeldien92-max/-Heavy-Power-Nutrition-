@@ -1,0 +1,296 @@
+*****************************************************************************************
+ Procedure Name : dbo.sploaddimcustomer
+
+ Description    :
+ Loads the Customer Dimension table from the Staging layer into
+ the Data Warehouse using a Full Load strategy.
+
+ Load Strategy :
+ - TRUNCATE + INSERT (Full Refresh)
+
+ Source Object :
+ heavy_power_nutrition_SA..vwDimCustomer
+
+ Target Table  :
+ Heavy_Power_Nutrition_DWH..DimCustomer
+
+ Grain          :
+ One row per Customer
+******************************************************************************************/
+CREATE PROCEDURE [dbo].[sploaddimcustomer]
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @start_time DATETIME,
+            @end_time   DATETIME;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        PRINT '==========================================';
+        PRINT 'Loading Dimension: DimCustomer';
+        PRINT '==========================================';
+
+        SET @start_time = GETDATE();
+
+        TRUNCATE TABLE DimCustomer;
+
+        INSERT INTO DimCustomer
+        (
+            CustomerKey,
+            Customer,
+            BusinessType,
+            CityName,
+            StateCode,
+            StateName,
+            CountryName,
+            Continent
+        )
+        SELECT
+            CustomerKey,
+            Customer,
+            BusinessType,
+            CityName,
+            ISNULL(StateCode, 'UNK') AS StateCode,   -- ✅ 
+             ISNULL(StateName, 'UNK') AS Statename,   -- ✅,
+            CountryName,
+            Continent
+        FROM heavy_power_nutrition_SA..vwDimCustomer;
+
+        SET @end_time = GETDATE();
+
+        COMMIT TRANSACTION;
+
+        PRINT 'DimCustomer Load Completed Successfully';
+        PRINT 'Duration: '
+              + CAST(DATEDIFF(SECOND, @start_time, @end_time) AS NVARCHAR)
+              + ' seconds';
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+
+        PRINT '==========================================';
+        PRINT 'ERROR loading DimCustomer';
+        PRINT ERROR_MESSAGE();
+        PRINT '==========================================';
+    END CATCH
+END;
+GO
+
+
+
+/*****************************************************************************************
+ Procedure Name : dbo.sploaddimproduct
+
+ Description    :
+ Loads the Product Dimension table from the Staging layer into
+ the Data Warehouse using a Full Load strategy.
+
+ Load Strategy :
+ - TRUNCATE + INSERT (Full Refresh)
+
+ Source Object :
+ HeavyPowerNutritionStaging..vwDimProduct
+
+ Target Table  :
+ Heavy_Power_Nutrition_DWH..DimProduct
+
+ Grain          :
+ One row per Product
+******************************************************************************************/
+CREATE OR ALTER PROCEDURE dbo.sploaddimproduct
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @start_time DATETIME, @end_time DATETIME;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        PRINT 'Loading Dimension: DimProduct';
+        SET @start_time = GETDATE();
+
+        TRUNCATE TABLE DimProduct;
+
+        INSERT INTO DimProduct
+        (
+            ProductKey,
+            ProductName,
+            Size,
+            Detail,
+            SubcategoryName,
+            CategoryName
+        )
+        SELECT
+            ProductKey,
+            ProductName,
+            Size,
+            Detail,
+            SubcategoryName,
+            CategoryName
+        FROM heavy_power_nutrition_SA..vwDimProduct;
+
+        SET @end_time = GETDATE();
+        COMMIT TRANSACTION;
+
+        PRINT 'DimProduct Load Completed Successfully';
+        PRINT 'Duration: ' + CAST(DATEDIFF(SECOND,@start_time,@end_time) AS NVARCHAR) + ' seconds';
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        PRINT 'ERROR loading DimProduct';
+        PRINT ERROR_MESSAGE();
+    END CATCH
+END;
+GO
+
+/*****************************************************************************************
+ Procedure Name : dbo.sploadfactsales
+
+ Description    :
+ Loads the Sales Fact table from the Staging layer into
+ the Data Warehouse using a Full Load strategy.
+
+ Load Strategy :
+ - TRUNCATE + INSERT (Full Refresh)
+
+ Source Object :
+ HeavyPowerNutritionStaging..vwftSales
+
+ Target Table  :
+ Heavy_Power_Nutrition_DWH..FSales
+
+ Grain          :
+ One row per Product per Sales Order
+******************************************************************************************/
+CREATE OR ALTER PROCEDURE dbo.sploadfactsales
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @start_time DATETIME, @end_time DATETIME;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        PRINT 'Loading Fact Table: FSales';
+        SET @start_time = GETDATE();
+
+        TRUNCATE TABLE FSales;
+
+        INSERT INTO FSales
+        (
+            OrderDate,
+            DueDate,
+            ShipDate,
+            SalesOrderNumber,
+            CustomerKey,
+            ProductKey,
+            OrderQuantity,
+            UnitPrice,
+            UnitCost,
+            DiscountPct,
+            Discount,
+            NetSales
+        )
+        SELECT
+            OrderDate,
+            DueDate,
+            ShipDate,
+            SalesOrderNumber,
+            CustomerKey,
+            ProductKey,
+            OrderQuantity,
+            UnitPrice,
+            UnitCost,
+            discount_percentage,
+            discount_value,
+            net_sales
+        FROM heavy_power_nutrition_SA..vwftSales;
+
+        SET @end_time = GETDATE();
+        COMMIT TRANSACTION;
+
+        PRINT 'FSales Load Completed Successfully';
+        PRINT 'Duration: ' + CAST(DATEDIFF(SECOND,@start_time,@end_time) AS NVARCHAR) + ' seconds';
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        PRINT 'ERROR loading FSales';
+        PRINT ERROR_MESSAGE();
+    END CATCH
+END;
+GO
+
+
+/*****************************************************************************************
+ Procedure Name : dbo.sploadfactreturns
+
+ Description    :
+ Loads the Returns Fact table from the Staging layer into
+ the Data Warehouse using a Full Load strategy.
+
+ Load Strategy :
+ - TRUNCATE + INSERT (Full Refresh)
+
+ Source Object :
+ HeavyPowerNutritionStaging..vwftReturns
+
+ Target Table  :
+ Heavy_Power_Nutrition_DWH..FReturns
+
+ Grain          :
+ One row per Returned Product per Order
+******************************************************************************************/
+CREATE OR ALTER PROCEDURE dbo.sploadfactreturns
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @start_time DATETIME, @end_time DATETIME;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        PRINT 'Loading Fact Table: FReturns';
+        SET @start_time = GETDATE();
+
+        TRUNCATE TABLE FReturns;
+
+        INSERT INTO FReturns
+        (
+            OrderDate,
+            ReturnDate,
+            SalesOrderNumber,
+            CustomerKey,
+            ProductKey,
+            ReturnQuantity,
+            UnitPrice,
+            ReturnAmount
+        )
+        SELECT
+            OrderDate,
+            ReturnDate,
+            SalesOrderNumber,
+            CustomerKey,
+            ProductKey,
+            ReturnQuantity,
+            UnitPrice,
+            ReturnAmount
+        FROM heavy_power_nutrition_SA..vwftReturns;
+
+        SET @end_time = GETDATE();
+        COMMIT TRANSACTION;
+
+        PRINT 'FReturns Load Completed Successfully';
+        PRINT 'Duration: ' + CAST(DATEDIFF(SECOND,@start_time,@end_time) AS NVARCHAR) + ' seconds';
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        PRINT 'ERROR loading FReturns';
+        PRINT ERROR_MESSAGE();
+    END CATCH
+END;
+GO
