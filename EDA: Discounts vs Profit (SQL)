@@ -1,0 +1,149 @@
+-- ============================================================================
+-- Query 1: Overall Discount, Revenue, and Profit Overview
+-- Purpose:
+-- This query provides a high-level summary of the total discounts granted,
+-- total net sales, and overall profit across all sales transactions.
+-- It helps assess whether the business is profitable despite offering discounts.
+-- ============================================================================
+
+SELECT
+    ROUND(SUM(Discount), 2) AS TotalDiscount,
+    ROUND(SUM(NetSales), 2) AS TotalNetSales,
+    ROUND(SUM(NetSales - (UnitCost * OrderQuantity)), 2) AS TotalProfit
+FROM FSales;
+-- ============================================================================
+-- Query 2: Average Profit by Discount Percentage
+-- Purpose:
+-- This query analyzes how average profit changes for each discount percentage.
+-- It helps identify whether higher discounts are associated with lower
+-- profitability at the transaction level.
+-- ============================================================================
+
+SELECT
+    DiscountPct,
+    AVG(NetSales - (UnitCost * OrderQuantity)) AS AvgProfit
+FROM FSales
+GROUP BY DiscountPct
+ORDER BY DiscountPct;
+-- ============================================================================
+-- Query 3: Profit and Revenue by Discount Bucket
+-- Purpose:
+-- This query groups sales into discount ranges (buckets) and evaluates
+-- the number of transactions, total net sales, and total profit for each range.
+-- It highlights which discount levels generate the most profit.
+-- ============================================================================
+
+SELECT
+    CASE
+        WHEN DiscountPct = 0 THEN 'No Discount'
+        WHEN DiscountPct BETWEEN 0.01 AND 0.10 THEN 'Low Discount (1-10%)'
+        WHEN DiscountPct BETWEEN 0.11 AND 0.25 THEN 'Medium Discount (11-25%)'
+        ELSE 'High Discount (>25%)'
+    END AS DiscountBucket,
+
+    COUNT(*) AS Transactions,
+    SUM(NetSales) AS NetSales,
+    SUM(NetSales - (UnitCost * OrderQuantity)) AS Profit
+FROM FSales
+GROUP BY
+    CASE
+        WHEN DiscountPct = 0 THEN 'No Discount'
+        WHEN DiscountPct BETWEEN 0.01 AND 0.10 THEN 'Low Discount (1-10%)'
+        WHEN DiscountPct BETWEEN 0.11 AND 0.25 THEN 'Medium Discount (11-25%)'
+        ELSE 'High Discount (>25%)'
+    END
+ORDER BY Profit DESC;
+-- ============================================================================
+-- Query 4: Profit Margin Analysis by Discount Bucket
+-- Purpose:
+-- This query calculates the profit margin for each discount range.
+-- It shows how discounts impact profitability relative to revenue,
+-- not just absolute profit values.
+-- ============================================================================
+
+SELECT
+    CASE
+        WHEN DiscountPct = 0 THEN 'No Discount'
+        WHEN DiscountPct BETWEEN 0.01 AND 0.10 THEN 'Low Discount'
+        WHEN DiscountPct BETWEEN 0.11 AND 0.25 THEN 'Medium Discount'
+        ELSE 'High Discount'
+    END AS DiscountBucket,
+
+    SUM(NetSales - (UnitCost * OrderQuantity)) * 1.0 /
+    NULLIF(SUM(NetSales), 0) AS ProfitMargin
+FROM FSales
+GROUP BY
+    CASE
+        WHEN DiscountPct = 0 THEN 'No Discount'
+        WHEN DiscountPct BETWEEN 0.01 AND 0.10 THEN 'Low Discount'
+        WHEN DiscountPct BETWEEN 0.11 AND 0.25 THEN 'Medium Discount'
+        ELSE 'High Discount'
+    END;
+
+
+-- ============================================================================
+-- Query 5: Sales Volume vs Discounts
+-- Purpose:
+-- This query evaluates whether higher discounts lead to higher sales volume
+-- by comparing total quantity sold and net sales across discount buckets.
+-- It helps determine if discounts successfully drive demand.
+-- ============================================================================
+
+SELECT
+    CASE
+        WHEN DiscountPct = 0 THEN 'No Discount'
+        WHEN DiscountPct BETWEEN 0.01 AND 0.10 THEN 'Low Discount'
+        WHEN DiscountPct BETWEEN 0.11 AND 0.25 THEN 'Medium Discount'
+        ELSE 'High Discount'
+    END AS DiscountBucket,
+
+    SUM(OrderQuantity) AS TotalQuantity,
+    SUM(NetSales) AS NetSales
+FROM FSales
+GROUP BY
+    CASE
+        WHEN DiscountPct = 0 THEN 'No Discount'
+        WHEN DiscountPct BETWEEN 0.01 AND 0.10 THEN 'Low Discount'
+        WHEN DiscountPct BETWEEN 0.11 AND 0.25 THEN 'Medium Discount'
+        ELSE 'High Discount'
+    END;
+-- ============================================================================
+-- Query 6: Products Sold at a Loss Due to Discounts
+-- Purpose:
+-- This query identifies products that generate negative profit when discounts
+-- are applied. It helps highlight pricing or cost issues that require
+-- immediate business attention.
+-- ============================================================================
+
+SELECT
+    p.ProductName,
+    SUM(f.NetSales - (f.UnitCost * f.OrderQuantity)) AS Profit
+FROM FSales f
+JOIN DimProduct p ON f.ProductKey = p.ProductKey
+WHERE f.DiscountPct > 0
+GROUP BY p.ProductName
+HAVING SUM(f.NetSales - (f.UnitCost * f.OrderQuantity)) < 0
+ORDER BY Profit;
+-- ============================================================================
+-- Query 7: Comparison of Discounted vs Non-Discounted Sales
+-- Purpose:
+-- This query compares sales transactions with discounts against those
+-- without discounts, measuring their impact on revenue and profit.
+-- It provides a clear business-level comparison for decision-makers.
+-- ============================================================================
+
+SELECT
+    CASE 
+        WHEN DiscountPct = 0 THEN 'Without Discount'
+        ELSE 'With Discount'
+    END AS DiscountFlag,
+
+    COUNT(*) AS Transactions,
+    SUM(NetSales) AS NetSales,
+    SUM(NetSales - (UnitCost * OrderQuantity)) AS Profit
+FROM FSales
+GROUP BY
+    CASE 
+        WHEN DiscountPct = 0 THEN 'Without Discount'
+        ELSE 'With Discount'
+    END;
