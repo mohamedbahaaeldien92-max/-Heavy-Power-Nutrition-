@@ -1,0 +1,124 @@
+use Heavy_Power_Nutrition_DWH
+go
+
+SELECT 'DimCustomer' AS TableName, COUNT(*)  FROM DimCustomer
+UNION ALL
+SELECT 'DimProduct', COUNT(*) FROM DimProduct
+UNION ALL
+SELECT 'FSales', COUNT(*) FROM FSales
+UNION ALL
+SELECT 'FReturns', COUNT(*) FROM FReturns;
+
+SELECT 
+    MIN(OrderDate) AS MinOrderDate,
+    MAX(OrderDate) AS MaxOrderDate
+FROM FSales;
+
+SELECT 
+    YEAR(OrderDate) AS Year,
+    COUNT(DISTINCT SalesOrderNumber) AS OrdersCount
+FROM FSales
+GROUP BY YEAR(OrderDate)
+ORDER BY Year;
+
+SELECT 
+    SUM(NetSales) AS TotalNetSales
+FROM FSales;
+
+SELECT TOP 10
+    c.Customer,
+    SUM(f.NetSales) AS TotalSales
+FROM FSales f
+JOIN DimCustomer c ON f.CustomerKey = c.CustomerKey
+GROUP BY c.Customer
+ORDER BY TotalSales DESC;
+
+SELECT 
+    BusinessType,
+    COUNT(*) AS CustomersCount
+FROM DimCustomer
+GROUP BY BusinessType;
+
+SELECT 
+    CountryName,
+    SUM(NetSales) AS NetSales
+FROM FSales f
+JOIN DimCustomer c ON f.CustomerKey = c.CustomerKey
+GROUP BY CountryName
+ORDER BY NetSales DESC;
+
+SELECT 
+    Statename,
+    COUNT(*) AS CustomersCount
+FROM DimCustomer
+GROUP BY Statename 
+HAVING COUNT(*) > 30
+
+SELECT TOP 10
+    p.ProductName,
+    ROUND(SUM(f.NetSales), 2) AS NetSales
+FROM FSales f
+JOIN DimProduct p ON f.ProductKey = p.ProductKey
+GROUP BY p.ProductName
+ORDER BY NetSales DESC;
+
+SELECT
+    p.CategoryName,
+    ROUND(SUM(f.NetSales), 2) AS NetSales
+FROM FSales f
+JOIN DimProduct p ON f.ProductKey = p.ProductKey
+GROUP BY p.CategoryName
+ORDER BY NetSales DESC;
+
+
+SELECT 
+   ROUND(AVG(DiscountPct), 2) AS AvgDiscountPct
+FROM FSales;
+
+SELECT
+    CASE 
+        WHEN DiscountPct = 0 THEN 'No Discount'
+        WHEN DiscountPct BETWEEN 0.01 AND 0.1 THEN 'Low Discount'
+        WHEN DiscountPct BETWEEN 0.11 AND 0.3 THEN 'Medium Discount'
+        ELSE 'High Discount'
+    END AS DiscountBucket,
+    ROUND(SUM(NetSales), 2) AS NetSales
+FROM FSales
+GROUP BY 
+    CASE 
+        WHEN DiscountPct = 0 THEN 'No Discount'
+        WHEN DiscountPct BETWEEN 0.01 AND 0.1 THEN 'Low Discount'
+        WHEN DiscountPct BETWEEN 0.11 AND 0.3 THEN 'Medium Discount'
+        ELSE 'High Discount'
+    END
+ORDER BY NetSales DESC;
+
+SELECT 
+    SUM(NetSales - (UnitCost * OrderQuantity)) AS TotalProfit
+FROM FSales;
+
+SELECT
+    p.ProductName,
+    SUM(f.NetSales - (f.UnitCost * f.OrderQuantity)) AS Profit
+FROM FSales f
+JOIN DimProduct p ON f.ProductKey = p.ProductKey
+GROUP BY p.ProductName
+ORDER BY Profit DESC;
+
+SELECT 
+    SUM(ReturnAmount) AS TotalReturns
+FROM FReturns;
+
+SELECT
+    SUM(r.ReturnQuantity) * 1.0 / SUM(f.OrderQuantity) AS ReturnRate
+FROM FSales f
+LEFT JOIN FReturns r 
+    ON f.SalesOrderNumber = r.SalesOrderNumber
+   AND f.ProductKey = r.ProductKey;
+
+SELECT COUNT(*) AS MissingCustomer
+FROM FSales
+WHERE CustomerKey IS NULL;
+SELECT COUNT(*) AS MissingProduct
+FROM FSales
+WHERE ProductKey IS NULL;
