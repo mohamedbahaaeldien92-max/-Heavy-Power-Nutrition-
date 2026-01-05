@@ -1,0 +1,70 @@
+
+
+/*****************************************************************************************
+ Database Name : Heavy_Power_Nutrition_DWH
+
+ Description   :
+ This database represents the Enterprise Data Warehouse (EDW) layer
+ for Heavy Power Nutrition analytics platform.
+
+ Purpose       :
+ - Store cleaned and integrated dimensional and fact data
+ - Serve as the single source of truth for reporting and analytics
+ - Support Power BI and advanced analytical workloads
+
+ Source Layer  :
+ HeavyPowerNutritionStaging (Staging / Semantic Layer)
+
+ Created By    : Mohamed Bahaaeldien
+ Created Date  : 2026-01-03
+******************************************************************************************/
+
+CREATE DATABASE Heavy_Power_Nutrition_DWH;
+GO
+
+CREATE TABLE [dbo].[dimcustomer](
+	[CustomerKey] [int] NOT NULL,
+	[Customer] [varchar](200) NOT NULL,
+	[BusinessType] [varchar](200) NOT NULL,
+	[CityName] [varchar](200) NOT NULL,
+	[StateCode] [varchar](3) NOT NULL,
+	[StateName] [varchar](200) NOT NULL,
+	[CountryName] [varchar](200) NOT NULL,
+	[Continent] [varchar](200) NOT NULL 
+	)
+
+		
+	CREATE TABLE [dbo].[dimproduct](
+		[ProductKey] [int]  NOT NULL,
+		[ProductName] [nvarchar](50) NOT NULL,
+		[Size] [nvarchar](50) NOT NULL,
+		[Detail] [nvarchar](50) NOT NULL,
+		[SubcategoryName] [nvarchar](50) NOT NULL,
+		[CategoryName] [nvarchar](50) NOT NULL
+	)
+
+		CREATE TABLE [dbo].[fsales](
+		[OrderDate] [date] NOT NULL,
+		[DueDate] [date] NOT NULL,
+		[ShipDate] [date] NOT NULL,
+		[SalesOrderNumber] [nvarchar](50) NOT NULL,
+		[CustomerKey] [int] NOT NULL,
+		[ProductKey] [int] NOT NULL,
+		[OrderQuantity] [int] NOT NULL,
+		[UnitPrice] [float]  NOT NULL,
+		[UnitCost] [float] NOT NULL,
+		[DiscountPct] [float] NOT NULL,
+		[Discount] [float] NOT NULL,
+		[NetSales] [float] NOT NULL
+	)
+
+		CREATE TABLE [dbo].[freturns](
+		[OrderDate] [date] NOT NULL,
+		[ReturnDate] [date] NOT NULL,
+		[SalesOrderNumber] [nvarchar](50) NOT NULL,
+		[CustomerKey] [int] NOT NULL,
+		[ProductKey] [int] NOT NULL,
+		[ReturnQuantity] [int] NOT NULL,
+		[UnitPrice] [float] NOT NULL,
+		[ReturnAmount] [float] NOT NULL
+	)
