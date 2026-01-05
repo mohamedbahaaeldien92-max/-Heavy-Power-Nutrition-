@@ -1,0 +1,168 @@
+/*****************************************************************************************
+ View Name      : vwDimCustomer
+
+ Description    :
+ This view represents the Customer Dimension in the Staging/Semantic Layer.
+ It combines customer master data with geographical and regional attributes
+ to provide a unified customer profile for analytical reporting.
+
+ Purpose        :
+ - Support customer-based analysis
+ - Enable geographic and regional slicing (City, State, Country, Continent)
+ - Serve as a dimension table in the Star Schema model
+
+ Source Tables  :
+ - Customer
+ - Geography
+ - Region
+
+ Grain          :
+ One row per Customer
+******************************************************************************************/
+
+CREATE OR ALTER VIEW vwDimCustomer AS
+SELECT 
+    c.CustomerKey,
+    c.Customer,
+    c.BusinessType,
+    g.CityName,
+    g.StateName,
+    g.CountryName,
+    r.Continent
+FROM Customer c
+LEFT JOIN Geography g 
+    ON c.GeographyKey = g.GeographyKey
+LEFT JOIN Region r 
+    ON g.RegionKey = r.RegionKey;
+GO
+
+
+/*****************************************************************************************
+ View Name      : vwDimProduct
+
+ Description    :
+ This view represents the Product Dimension in the Staging/Semantic Layer.
+ It enriches product master data with category and subcategory information.
+
+ Purpose        :
+ - Support product-level analysis
+ - Enable category and subcategory reporting
+ - Serve as a dimension table in the Star Schema model
+
+ Source Tables  :
+ - Product
+ - ProductSubcategory
+
+ Grain          :
+ One row per Product
+******************************************************************************************/
+
+CREATE OR ALTER VIEW vwDimProduct AS
+SELECT 
+    p.ProductKey,
+    p.ProductName,
+    p.Size,
+    p.ProductSubcategoryKey,
+    p.Detail,
+    sub.CategoryName,
+    sub.SubcategoryName
+FROM Product p
+LEFT JOIN ProductSubcategory sub
+    ON p.ProductSubcategoryKey = sub.ProductSubcategoryKey;
+GO
+
+
+/*****************************************************************************************
+ View Name      : vwftSales
+
+ Description    :
+ This view represents the Sales Fact table in the Staging/Semantic Layer.
+ It consolidates sales transactions at the product level and calculates
+ key financial metrics such as discounts, net sales, and unit cost.
+
+ Purpose        :
+ - Central fact table for sales analysis
+ - Enable revenue, discount, and profitability calculations
+
+ Source Tables  :
+ - SalesDetails
+ - SalesHeader
+ - Customer
+ - Geography
+ - ProductCostHistory
+
+ Grain          :
+ One row per Product per Sales Order
+******************************************************************************************/
+
+CREATE OR ALTER VIEW vwftSales AS
+SELECT 
+    sd.SalesOrderNumber,
+    sd.ProductKey,
+    sd.OrderQuantity,
+    sd.UnitPrice,
+    sh.OrderDate,
+    sh.DueDate,
+    sh.ShipDate,
+    sh.CustomerKey,
+    sh.DiscountAmount,
+
+    ROUND(
+        sh.DiscountAmount / NULLIF(sh.TotalAmount, 0), 
+    3) AS discount_percentage,
+
+    ROUND(
+        sh.DiscountAmount * (sd.ExtendedAmount / NULLIF(sh.TotalAmount, 0)), 
+    3) AS discount_value,
+
+    ROUND(
+        sd.ExtendedAmount 
+        - sh.DiscountAmount * (sd.ExtendedAmount / NULLIF(sh.TotalAmount, 0)), 
+    3) AS net_sales,
+
+    phc.UnitCost
+FROM SalesDetails sd
+LEFT JOIN SalesHeader sh
+    ON sd.SalesHeaderKey = sh.SalesHeaderKey
+LEFT JOIN Customer c 
+    ON sh.CustomerKey = c.CustomerKey
+LEFT JOIN Geography g 
+    ON c.GeographyKey = g.GeographyKey
+LEFT JOIN ProductCostHistory phc 
+    ON phc.CountryCode = g.CountryCode
+    AND phc.MonthNo = MONTH(sh.OrderDate)
+    AND phc.Year = YEAR(sh.OrderDate)
+    AND phc.ProductKey = sd.ProductKey;
+GO
+
+/*****************************************************************************************
+ View Name      : vwftReturns
+
+ Description    :
+ This view represents the Returns Fact table in the Staging/Semantic Layer.
+ It provides detailed information about returned sales transactions.
+
+ Purpose        :
+ - Analyze product returns
+ - Measure return rate and financial impact
+
+ Source Tables  :
+ - SalesReturns
+
+ Grain          :
+ One row per Returned Product per Order
+******************************************************************************************/
+
+CREATE OR ALTER VIEW vwftReturns AS
+SELECT 
+    re.CustomerKey,
+    re.OrderDate,
+    re.ProductKey,
+    re.ReturnAmount,
+    re.ReturnDate,
+    re.ReturnQuantity,
+    re.SalesOrderNumber,
+    re.UnitPrice
+FROM SalesReturns re;
+GO
+
