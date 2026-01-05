@@ -1,0 +1,110 @@
+USE HeavyPowerNutrition
+ALTER AUTHORIZATION ON DATABASE::HeavyPowerNutrition TO sa;
+
+SELECT
+    fk.name AS FK_Name,
+    OBJECT_NAME(fk.parent_object_id) AS FromTable,
+    OBJECT_NAME(fk.referenced_object_id) AS ToTable
+FROM sys.foreign_keys fk;
+
+
+
+/*****************************************************************************************
+ Procedure Name : spgetdatafromOLTP
+
+ Description    :
+ This stored procedure performs a FULL DATA LOAD from the OLTP database
+ (heavypowernutrition) into the Staging Area database (heavy_power_nutrition_SA).
+
+ The procedure:
+ - Drops existing staging tables if they exist
+ - Recreates the tables using SELECT INTO
+ - Copies all data from the OLTP system to the staging layer
+ - Uses transactions to ensure data consistency
+ - Rolls back all changes if any error occurs during execution
+
+ Purpose        :
+ This procedure represents the first step in the ETL pipeline.
+ It prepares clean raw data for further transformations,
+ data warehousing, and Power BI reporting.
+
+ Source System  : heavypowernutrition (OLTP)
+ Target System  : heavy_power_nutrition_SA (Staging Area)
+
+ Load Type      : Full Load (Overwrite)
+
+ Created By     : Mohamed Bahaaeldien
+ Created Date   : 2026-01-03
+
+ Notes:
+ - Designed for analytical workloads (not transactional use)
+ - Can be scheduled via SQL Server Agent
+ - Suitable for development and reporting environments
+******************************************************************************************/
+USE heavy_power_nutrition_SA
+GO
+
+CREATE OR ALTER PROCEDURE spgetdatafromOLTP
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Drop tables if exist
+        DROP TABLE IF EXISTS Customer;
+        DROP TABLE IF EXISTS Product;
+        DROP TABLE IF EXISTS Geography;
+        DROP TABLE IF EXISTS ProductCostHistory;
+        DROP TABLE IF EXISTS ProductSubcategory;
+        DROP TABLE IF EXISTS Region;
+        DROP TABLE IF EXISTS SalesDetails;
+        DROP TABLE IF EXISTS SalesHeader;
+        DROP TABLE IF EXISTS SalesReturns;
+
+        -- Load data from OLTP
+        SELECT *
+        INTO Customer
+        FROM heavypowernutrition.dbo.Customer;
+
+        SELECT *
+        INTO Product
+        FROM heavypowernutrition.dbo.Product;
+
+        SELECT *
+        INTO Geography
+        FROM heavypowernutrition.dbo.Geography;
+
+        SELECT *
+        INTO ProductCostHistory
+        FROM heavypowernutrition.dbo.ProductCostHistory;
+
+        SELECT *
+        INTO ProductSubcategory
+        FROM heavypowernutrition.dbo.ProductSubcategory;
+
+        SELECT *
+        INTO Region
+        FROM heavypowernutrition.dbo.Region;
+
+        SELECT *
+        INTO SalesDetails
+        FROM heavypowernutrition.dbo.SalesDetails;
+
+        SELECT *
+        INTO SalesHeader
+        FROM heavypowernutrition.dbo.SalesHeader;
+
+        SELECT *
+        INTO SalesReturns
+        FROM heavypowernutrition.dbo.SalesReturns;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END
+GO
